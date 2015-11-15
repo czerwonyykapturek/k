@@ -1,0 +1,26 @@
+README
+
+Kompilacja zadania 1:
+      g++ zad1.cpp openssl.cpp -lcrypto -o zad1
+Kompilacja zadania 2:
+      g++ zad2.cpp openssl.cpp -lcrypto -lmpg123 -lao -o zad2
+
+Zadanie 1:
+  Generowanie kluczy:
+      ./zad1 -g 10 keystore
+  
+  Szyfrowanie pliku:
+      ./zad1 keystore 1 e input output_encrypted
+      < wpisujemy haslo >
+  
+  Deszyfrowanie pliku:
+      ./zad1 keystore 1 d input_encrypted output_decrypted
+      < wpisujemy haslo >
+
+Zadanie 2:
+  Instalacja programu (program generuje plik config)
+      ./zad2 install
+  Odtwarzanie pliku:
+      ./zad2
+      < podajemy PIN >
+      < podajemy zakodowany plik muzyczny do odtworzenia >
