@@ -1,0 +1,2 @@
+To jest przykladowy plik do podpisania czasowego.
+test test test test
